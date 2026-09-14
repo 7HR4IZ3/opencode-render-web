@@ -1,0 +1,10 @@
+.git
+.env
+.env.*
+!.env.example
+node_modules
+**/node_modules
+workspace
+**/*.log
+.DS_Store
+opencode.db*

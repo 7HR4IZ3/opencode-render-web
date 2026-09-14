@@ -1,0 +1,8 @@
+.env
+.env.*
+!.env.example
+workspace/*
+!workspace/.gitkeep
+.opencode/node_modules
+*.log
+.DS_Store

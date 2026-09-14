@@ -1,0 +1,10 @@
+{
+  "name": "opencode-render-r2-plugin",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/client-s3": "3.933.0",
+    "@opencode/plugin": "2.0.3",
+    "effect": "4.0.0-rc.112"
+  }
+}
