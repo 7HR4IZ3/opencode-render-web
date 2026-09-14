@@ -14,7 +14,9 @@ services:
       - key: OPENCODE_AUTH_B64
         sync: false
       - key: OPENCODE_DB
-        value: ":memory:"
+        value: /var/lib/opencode/opencode.db
+      - key: OPENCODE_LITESTREAM_ENABLED
+        value: "1"
       - key: R2_ENDPOINT
         sync: false
       - key: R2_BUCKET

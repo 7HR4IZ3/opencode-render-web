@@ -1,6 +1,6 @@
 # OpenCode v2 on Render
 
-This repo runs the official OpenCode v2 container with its built-in web UI, v2 HTTP API, runtime auth injection, and an optional R2-backed file-tool plugin.
+This repo runs the official OpenCode v2 container with its built-in web UI, v2 HTTP API, runtime auth injection, Litestream-backed SQLite durability, and an optional R2-backed file-tool plugin.
 
 I interpreted “blaze r2” as Cloudflare R2. If you meant Backblaze B2, the same S3-compatible plugin works with a Backblaze endpoint and region instead.
 
@@ -17,9 +17,11 @@ Render only exposes one public HTTP port per web service. Its additional-port su
 
 ## Storage decision
 
-The default Blueprint targets Render Free with no persistent disk. Render’s Free filesystem is writable while the instance is running, but it is ephemeral: local SQLite, logs, auth files, and workspace changes disappear on restart, redeploy, or idle spin-down. The Blueprint sets `OPENCODE_DB=:memory:` so OpenCode does not depend on a persistent SQLite file.
+The default Blueprint targets Render Free with no persistent disk. Render’s Free filesystem is writable while the instance is running, but it is ephemeral: local SQLite, logs, auth files, and workspace changes disappear on restart, redeploy, or idle spin-down. The Blueprint therefore uses a file-backed database at `/var/lib/opencode/opencode.db` and enables Litestream to restore it from, and replicate its WAL to, the configured S3-compatible bucket.
 
 OpenCode v2 still uses a local SQLite-backed server store and local POSIX workspace during the process lifetime. R2 is object storage, not a safe drop-in SQLite/POSIX filesystem; mounting it as the database or replacing OpenCode’s internal storage would be an invasive fork with locking, event, snapshot, and tool-runtime risks.
+
+Litestream is the durability layer for the SQLite store, not a filesystem mount. It restores before OpenCode starts, tails SQLite WAL changes while OpenCode runs, and performs a final sync during shutdown. This preserves OpenCode’s normal local SQLite locking semantics. It is still best-effort: a crash can lose writes that have not reached the most recent sync, and Render can spin the service down after idle time.
 
 The included `.opencode/plugins/r2-storage.ts` therefore adds explicit durable tools instead:
 
@@ -31,6 +33,12 @@ The included `.opencode/plugins/r2-storage.ts` therefore adds explicit durable t
 They store UTF-8 objects below `R2_PREFIX` and never replace OpenCode’s built-in local `read`, `write`, shell, Git, or workspace tools. This is the safer v2-compatible boundary, but it does not make OpenCode session history persistent. If you need session history and the workspace to survive Free-instance restarts, that requires a real external database/workspace design or an upstream/core storage adapter—not merely an R2 tool plugin.
 
 The adapter is S3-compatible: Cloudflare R2 works with `region=auto` and an endpoint such as `https://<account-id>.r2.cloudflarestorage.com`; a Backblaze B2 S3 endpoint can use the same plugin by changing `R2_ENDPOINT` and `R2_REGION`.
+
+### Why just-bash is not the native filesystem adapter
+
+`just-bash` can accept a custom `IFileSystem`, so an R2-backed virtual workspace is technically possible. That filesystem belongs to the just-bash interpreter, though; it is not visible to OpenCode’s native shell process, built-in `read`/`write` tools, Git, package managers, or other binaries. OpenCode’s shell hook can adjust a command, executable, working directory, timeout, and environment, but it does not inject a JavaScript filesystem object into child processes.
+
+Making native commands durable would require a separate hydrate → execute → diff → upload bridge around every command, with a local staging directory, per-session locking, path restrictions, and conflict handling. That is a useful future `r2_bash` tool, but it is not a transparent S3 filesystem and would be a different execution path from the current native `bash` tool. The current design keeps native tools coherent and uses Litestream for the OpenCode database plus explicit R2 tools for durable text files.
 
 ## Auth injection
 
@@ -62,10 +70,10 @@ The Dockerfile installs the plugin dependencies in a Bun builder stage and copie
 
 1. Push this directory to GitHub, GitLab, or Bitbucket.
 2. Create a Blueprint from the repository; Render reads `render.yaml`.
-3. Fill the `sync: false` values in the Dashboard, especially `OPENCODE_SERVER_PASSWORD`, `OPENCODE_AUTH_B64`, and the R2 credentials.
+3. Fill the `sync: false` values in the Dashboard, especially `OPENCODE_SERVER_PASSWORD`, `OPENCODE_AUTH_B64`, and the R2 credentials. The Blueprint enables Litestream and requires a valid endpoint, bucket, access key, and secret key.
 4. Open the service URL after the health check passes.
 
-The Blueprint uses the Free plan and intentionally accepts ephemeral OpenCode sessions and local workspace state. R2 credentials should be scoped to one bucket and the smallest required permissions. If persistent sessions become mandatory, move to a paid service with a disk or redesign the OpenCode storage layer around a database that it actually supports.
+The Blueprint uses the Free plan. The OpenCode SQLite store is durable through Litestream, while the ordinary local workspace remains ephemeral unless you use the explicit R2 tools. R2 credentials should be scoped to one bucket and the smallest required permissions. If you need a fully durable POSIX workspace for native commands, use a paid disk or build and test the staging bridge described above.
 
 ## Verification
 
@@ -82,6 +90,8 @@ curl -u 'opencode:change-me-before-sharing' http://localhost:4097/api/global/hea
 curl -u 'opencode:change-me-before-sharing' http://localhost:4097/doc
 ```
 
+When Litestream is enabled, startup logs should show a restore/replication message before OpenCode starts. A malformed endpoint or missing R2 credential is a startup error by design; fix the Render environment variable rather than falling back silently to an in-memory database.
+
 ## Upstream references
 
 - [OpenCode v2 installation and Docker image](https://opencode.ai/v2/docs)
@@ -93,3 +103,7 @@ curl -u 'opencode:change-me-before-sharing' http://localhost:4097/doc
 - [Render Free services and ephemeral filesystems](https://render.com/docs/free)
 - [Render web-service ports](https://render.com/docs/web-services)
 - [Render persistent disks](https://render.com/docs/disks)
+- [Litestream S3-compatible replicas](https://litestream.io/guides/s3-compatible/)
+- [Litestream replicate command](https://litestream.io/reference/replicate/)
+- [just-bash filesystem interface](https://raw.githubusercontent.com/vercel-labs/just-bash/main/packages/just-bash/src/fs/interface.ts)
+- [just-bash README and execution model](https://github.com/vercel-labs/just-bash/blob/main/packages/just-bash/README.md)

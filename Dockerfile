@@ -8,6 +8,10 @@ WORKDIR /opt/opencode-config/.opencode
 COPY .opencode/package.json .opencode/bun.lock ./
 RUN bun install --frozen-lockfile --production
 
+# Litestream is copied from the official static image so it can supervise
+# OpenCode and replicate the SQLite WAL without adding a second runtime stack.
+FROM litestream/litestream:0.5.16-scratch AS litestream
+
 # OpenCode publishes versioned v2 images. Pin the multi-architecture manifest
 # so a rebuild cannot silently move to a different release.
 FROM ghcr.io/anomalyco/opencode:2.0.3@sha256:aaf8c5420e10652c520e068532384f6e20cece2922c404db7f89e36720b9f212
@@ -23,6 +27,7 @@ RUN apk add --no-cache ca-certificates git socat \
   && chown -R opencode:opencode /var/lib/opencode /opt/opencode-config
 
 COPY --chmod=755 docker/entrypoint.sh /usr/local/bin/opencode-render-entrypoint
+COPY --from=litestream /usr/local/bin/litestream /usr/local/bin/litestream
 COPY opencode.jsonc /opt/opencode-config/opencode.jsonc
 COPY --from=plugin-deps --chown=opencode:opencode /opt/opencode-config/.opencode/node_modules /opt/opencode-config/.opencode/node_modules
 COPY --chown=opencode:opencode .opencode/package.json .opencode/bun.lock /opt/opencode-config/.opencode/
