@@ -7,8 +7,12 @@ import {
 } from "@aws-sdk/client-s3";
 import { Plugin } from "@opencode/plugin";
 import { Schema } from "effect";
+import { R2WorkspaceSync } from "./r2-sync";
 
-declare const process: { env: Record<string, string | undefined> };
+declare const process: {
+  env: Record<string, string | undefined>;
+  cwd(): string;
+};
 
 const DEFAULT_MAX_BYTES = 4 * 1024 * 1024;
 const DEFAULT_MAX_KEYS = 100;
@@ -26,6 +30,7 @@ const listInput = Schema.Struct({
   prefix: Schema.optional(Schema.String),
   limit: Schema.optional(Schema.Number),
 });
+const emptyInput = Schema.Struct({});
 
 function required(name: string) {
   const value = process.env[name];
@@ -33,13 +38,30 @@ function required(name: string) {
   return value;
 }
 
+function endpoint() {
+  const value = required("R2_ENDPOINT").trim();
+  const normalized = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+  let parsed: URL;
+  try {
+    parsed = new URL(normalized);
+  } catch {
+    throw new Error(
+      "R2_ENDPOINT must be a host URL such as https://account-id.r2.cloudflarestorage.com",
+    );
+  }
+  if (parsed.pathname !== "/" || parsed.search || parsed.hash) {
+    throw new Error("R2_ENDPOINT must not contain a path, query, or fragment");
+  }
+  return parsed.toString().replace(/\/$/, "");
+}
+
 let client: S3Client | undefined;
 
-function s3() {
+export function s3() {
   if (client) return client;
   client = new S3Client({
     region: process.env.R2_REGION ?? "auto",
-    endpoint: required("R2_ENDPOINT"),
+    endpoint: endpoint(),
     credentials: {
       accessKeyId: required("R2_ACCESS_KEY_ID"),
       secretAccessKey: required("R2_SECRET_ACCESS_KEY"),
@@ -51,15 +73,15 @@ function s3() {
   return client;
 }
 
-function bucket() {
+export function bucket() {
   return required("R2_BUCKET");
 }
 
-function prefix() {
+export function prefix() {
   return (process.env.R2_PREFIX ?? "opencode").trim().replace(/^\/+|\/+$/g, "");
 }
 
-function safePath(value: string) {
+export function safePath(value: string) {
   const path = value.trim().replace(/^\/+/, "");
   if (
     !path ||
@@ -118,6 +140,16 @@ async function readObject(path: string) {
 export default Plugin.define({
   id: "render.r2-storage",
   async setup(ctx) {
+    const syncEnabled = process.env.R2_SYNC_ENABLED ?? "0";
+    if (syncEnabled !== "0" && syncEnabled !== "1") {
+      throw new Error("R2_SYNC_ENABLED must be 0 or 1");
+    }
+    const sync =
+      syncEnabled === "1"
+        ? new R2WorkspaceSync(process.env.R2_SYNC_DIR || process.cwd())
+        : undefined;
+    if (sync) await sync.start();
+
     await ctx.tool.transform((editor) => {
       editor.namespace({
         name: "r2",
@@ -196,6 +228,33 @@ export default Plugin.define({
           return { content: `Deleted ${path}` };
         },
       });
+
+      if (sync) {
+        editor.namespace({
+          name: "r2_sync",
+          description:
+            "Background synchronization between the native workspace and R2",
+        });
+
+        editor.add({
+          name: "status",
+          description: "Show the R2 workspace sync engine status.",
+          input: emptyInput,
+          options: { namespace: "r2_sync" },
+          execute: async () => ({ content: JSON.stringify(sync.status()) }),
+        });
+
+        editor.add({
+          name: "flush",
+          description:
+            "Immediately scan the native workspace and synchronize pending R2 changes.",
+          input: emptyInput,
+          options: { namespace: "r2_sync" },
+          execute: async () => ({ content: JSON.stringify(await sync.flush()) }),
+        });
+      }
     });
+
+    if (sync) return () => sync.stop();
   },
 });

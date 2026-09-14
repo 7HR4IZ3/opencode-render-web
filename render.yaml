@@ -31,5 +31,17 @@ services:
         value: auto
       - key: R2_PREFIX
         value: opencode
+      - key: R2_SYNC_ENABLED
+        value: "1"
+      - key: R2_SYNC_PREFIX
+        value: workspace
+      - key: R2_SYNC_INTERVAL_MS
+        value: "5000"
+      - key: R2_SYNC_DEBOUNCE_MS
+        value: "750"
+      - key: R2_SYNC_CONFLICT
+        value: skip
+      - key: R2_SYNC_IGNORE
+        value: .r2-sync,.opencode,.git,node_modules
       - key: API_PORT
         value: "4097"

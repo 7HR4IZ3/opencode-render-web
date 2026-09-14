@@ -1,8 +1,8 @@
 # OpenCode v2 on Render
 
-This repo runs the official OpenCode v2 container with its built-in web UI, v2 HTTP API, runtime auth injection, Litestream-backed SQLite durability, and an optional R2-backed file-tool plugin.
+This repo runs the official OpenCode v2 container with its built-in web UI, v2 HTTP API, runtime auth injection, Litestream-backed SQLite durability, and an opt-in R2-backed workspace sync engine.
 
-I interpreted “blaze r2” as Cloudflare R2. If you meant Backblaze B2, the same S3-compatible plugin works with a Backblaze endpoint and region instead.
+The storage adapter is S3-compatible and works with Cloudflare R2 or Backblaze B2. Set `R2_ENDPOINT`, `R2_BUCKET`, and `R2_REGION` for the provider you use.
 
 ## What runs
 
@@ -23,14 +23,22 @@ OpenCode v2 still uses a local SQLite-backed server store and local POSIX worksp
 
 Litestream is the durability layer for the SQLite store, not a filesystem mount. It restores before OpenCode starts, tails SQLite WAL changes while OpenCode runs, and performs a final sync during shutdown. This preserves OpenCode’s normal local SQLite locking semantics. It is still best-effort: a crash can lose writes that have not reached the most recent sync, and Render can spin the service down after idle time.
 
-The included `.opencode/plugins/r2-storage.ts` therefore adds explicit durable tools instead:
+The included `.opencode/plugins/r2-storage.ts` adds explicit durable tools:
 
 - `r2_read_file`
 - `r2_write_file`
 - `r2_list_files`
 - `r2_delete_file`
 
-They store UTF-8 objects below `R2_PREFIX` and never replace OpenCode’s built-in local `read`, `write`, shell, Git, or workspace tools. This is the safer v2-compatible boundary, but it does not make OpenCode session history persistent. If you need session history and the workspace to survive Free-instance restarts, that requires a real external database/workspace design or an upstream/core storage adapter—not merely an R2 tool plugin.
+They store UTF-8 objects below `R2_PREFIX` and never replace OpenCode’s built-in local `read`, `write`, shell, Git, or workspace tools. OpenCode session history is persisted by Litestream; these tools are for explicitly addressed durable files.
+
+### Native workspace sync
+
+When `R2_SYNC_ENABLED=1`, `r2-sync.ts` hydrates the current OpenCode working directory from `R2_PREFIX/R2_SYNC_PREFIX` before the server is used, then watches it with a filesystem watcher plus periodic polling. Local changes are uploaded as objects, remote changes are downloaded only when the local file has not changed, and deletions are propagated in either direction. Files are regular local files while commands run, so the native OpenCode shell, Git, compilers, and package managers continue to work normally.
+
+The engine is deliberately bounded by `R2_SYNC_MAX_FILE_BYTES`, `R2_SYNC_MAX_FILES`, and `R2_SYNC_MAX_TOTAL_BYTES`. Symlinks and ignored paths are not synchronized; the Render Blueprint ignores `.r2-sync`, `.opencode`, `.git`, and `node_modules` by default. Set `R2_SYNC_IGNORE` if the project needs a different policy.
+
+If both local and remote copies changed since the last successful sync, the default `R2_SYNC_CONFLICT=skip` leaves both sides untouched and reports the path through `r2_sync_status`. `local-wins` or `remote-wins` can be selected explicitly; the losing copy is archived under `R2_SYNC_CONFLICT_PREFIX` before it is replaced. This is a synchronization layer, not a POSIX mount: concurrent writers and processes that depend on locking or atomic cross-file transactions still need a real disk.
 
 The adapter is S3-compatible: Cloudflare R2 works with `region=auto` and an endpoint such as `https://<account-id>.r2.cloudflarestorage.com`; a Backblaze B2 S3 endpoint can use the same plugin by changing `R2_ENDPOINT` and `R2_REGION`.
 
@@ -38,7 +46,7 @@ The adapter is S3-compatible: Cloudflare R2 works with `region=auto` and an endp
 
 `just-bash` can accept a custom `IFileSystem`, so an R2-backed virtual workspace is technically possible. That filesystem belongs to the just-bash interpreter, though; it is not visible to OpenCode’s native shell process, built-in `read`/`write` tools, Git, package managers, or other binaries. OpenCode’s shell hook can adjust a command, executable, working directory, timeout, and environment, but it does not inject a JavaScript filesystem object into child processes.
 
-Making native commands durable would require a separate hydrate → execute → diff → upload bridge around every command, with a local staging directory, per-session locking, path restrictions, and conflict handling. That is a useful future `r2_bash` tool, but it is not a transparent S3 filesystem and would be a different execution path from the current native `bash` tool. The current design keeps native tools coherent and uses Litestream for the OpenCode database plus explicit R2 tools for durable text files.
+The sync engine is the practical compromise: native commands operate on the local staging directory, while a background process makes ordinary file changes durable. It does not make R2 a transparent filesystem, and it cannot make SQLite or other lock-sensitive databases safe on object storage.
 
 ## Auth injection
 
@@ -70,16 +78,17 @@ The Dockerfile installs the plugin dependencies in a Bun builder stage and copie
 
 1. Push this directory to GitHub, GitLab, or Bitbucket.
 2. Create a Blueprint from the repository; Render reads `render.yaml`.
-3. Fill the `sync: false` values in the Dashboard, especially `OPENCODE_SERVER_PASSWORD`, `OPENCODE_AUTH_B64`, and the R2 credentials. The Blueprint enables Litestream and requires a valid endpoint, bucket, access key, and secret key.
+3. Fill the `sync: false` values in the Dashboard, especially `OPENCODE_SERVER_PASSWORD`, `OPENCODE_AUTH_B64`, and the R2 credentials. The Blueprint enables Litestream and the workspace sync engine, so it requires a valid endpoint, bucket, access key, and secret key.
 4. Open the service URL after the health check passes.
 
-The Blueprint uses the Free plan. The OpenCode SQLite store is durable through Litestream, while the ordinary local workspace remains ephemeral unless you use the explicit R2 tools. R2 credentials should be scoped to one bucket and the smallest required permissions. If you need a fully durable POSIX workspace for native commands, use a paid disk or build and test the staging bridge described above.
+The Blueprint uses the Free plan. The OpenCode SQLite store is durable through Litestream, and ordinary workspace changes are continuously replicated under the workspace prefix. R2 credentials should be scoped to one bucket and the smallest required permissions. Because the workspace is object-backed, a crash can leave a small sync window and conflict policy `skip` requires manual resolution.
 
 ## Verification
 
 ```sh
 sh -n docker/entrypoint.sh
 bun --check .opencode/plugins/r2-storage.ts
+bun --check .opencode/plugins/r2-sync.ts
 ```
 
 After startup, check the public web listener and the private/local API listener:

@@ -12,6 +12,13 @@ services:
       OPENCODE_DB: "${OPENCODE_DB:-/var/lib/opencode/opencode.db}"
       OPENCODE_LITESTREAM_ENABLED: "${OPENCODE_LITESTREAM_ENABLED:-0}"
       OPENCODE_WORKDIR: "${OPENCODE_WORKDIR:-/workspace}"
+      R2_SYNC_ENABLED: "${R2_SYNC_ENABLED:-0}"
+      R2_SYNC_PREFIX: "${R2_SYNC_PREFIX:-workspace}"
+      R2_SYNC_INTERVAL_MS: "${R2_SYNC_INTERVAL_MS:-5000}"
+      R2_SYNC_DEBOUNCE_MS: "${R2_SYNC_DEBOUNCE_MS:-750}"
+      R2_SYNC_CONFLICT: "${R2_SYNC_CONFLICT:-skip}"
+      R2_SYNC_CONFLICT_PREFIX: "${R2_SYNC_CONFLICT_PREFIX:-workspace-conflicts}"
+      R2_SYNC_IGNORE: "${R2_SYNC_IGNORE:-.r2-sync,.opencode,.git,node_modules}"
     volumes:
       - opencode-data:/var/lib/opencode
       - ./workspace:/workspace
