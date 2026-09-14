@@ -2,7 +2,8 @@
 
 # Install the plugin's runtime dependencies separately because the official
 # OpenCode image contains the compiled CLI, not a Bun package manager.
-FROM oven/bun:1.3.9-alpine@sha256:9028ee7a60a04777190f0c3129ce49c73384d3fc918f3e5c75f5af188e431981 AS plugin-deps
+# bun.lock uses the v2 lockfile format emitted by Bun 1.4.x.
+FROM oven/bun:1.4.0-alpine AS plugin-deps
 WORKDIR /opt/opencode-config/.opencode
 COPY .opencode/package.json .opencode/bun.lock ./
 RUN bun install --frozen-lockfile --production
