@@ -28,7 +28,7 @@ The official Vercel MCP is restricted to client applications approved by Vercel 
 
 ## Verification and limits
 
-- Calls use fixed provider API origins, bearer authentication, a 30-second timeout, and a 50,000-character response cap for non-JSON/text responses.
+- Calls use fixed provider API origins, bearer authentication, a 30-second timeout, a 100,000-character cap for JSON responses, and a 50,000-character cap for non-JSON/text responses.
 - The request tool validates paths to keep them on the provider API host; it does not proxy arbitrary URLs.
 - GitHub's remote `all` toolset is large. OpenCode lets you turn off individual MCP tools or groups using its `tools` configuration if the model context gets crowded.
 - Provider APIs may not expose every feature available in a web dashboard or separate product UI. Use the official MCP client integration where a provider requires an approved OAuth client.
