@@ -31,12 +31,12 @@ function apiMethod(value: string): ApiMethod {
 }
 
 export default Plugin.define({
-  id: "opencode.vercel-readonly",
+  id: "opencode.vercel",
   async setup(ctx) {
     await ctx.tool.transform((editor) => {
       editor.namespace({
         name: "vercel",
-        description: "Read-only Vercel project, deployment, and build log tools.",
+        description: "Vercel project, deployment, domain, environment, and API tools.",
       });
 
       editor.add({
