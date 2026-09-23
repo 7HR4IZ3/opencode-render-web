@@ -40,6 +40,58 @@ export async function jsonContent<T>(value: T | Promise<T>) {
   return { content: JSON.stringify(await value, null, 2) };
 }
 
+export type ApiMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+
+export async function apiRequest(
+  provider: string,
+  origin: string,
+  basePath: string,
+  path: string,
+  method: ApiMethod,
+  token: string,
+  query: Record<string, QueryValue> = {},
+  body?: unknown,
+) {
+  if (!path.startsWith("/") || path.startsWith("//") || /[\\?#\0]/.test(path) || path.split("/").some((part) => part === "." || part === "..")) {
+    throw new Error("Use a provider API path such as /repos/owner/name; hostnames and traversal paths are not allowed.");
+  }
+  const base = new URL(origin);
+  const url = new URL(`${basePath}${path}`, base);
+  if (url.origin !== base.origin || !url.pathname.startsWith(basePath)) {
+    throw new Error("The API path must stay within the provider API.");
+  }
+  for (const [key, value] of Object.entries(query)) {
+    if (value === undefined) continue;
+    if (Array.isArray(value)) {
+      for (const item of value) url.searchParams.append(key, item);
+    } else {
+      url.searchParams.set(key, String(value));
+    }
+  }
+
+  const response = await fetch(url, {
+    method,
+    headers: {
+      accept: "application/json",
+      authorization: `Bearer ${token}`,
+      ...(body === undefined ? {} : { "content-type": "application/json" }),
+    },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    signal: AbortSignal.timeout(30_000),
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    const detail = text.slice(0, 1500);
+    throw new Error(`${provider} API request failed (${response.status} ${response.statusText})${detail ? `: ${detail}` : ""}`);
+  }
+  if (!text) return { status: response.status, ok: true };
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return text.slice(0, 50_000);
+  }
+}
+
 export async function getJson<T>(
   provider: string,
   url: string,
