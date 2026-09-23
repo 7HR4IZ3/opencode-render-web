@@ -1,52 +1,43 @@
 # OpenCode platform integrations
 
-This deployment adds read-only native OpenCode tools for GitHub, Vercel, and Render. The tools call each provider's HTTPS API from the OpenCode server; credentials never go to the browser and the tools do not expose arbitrary HTTP requests or write operations.
+GitHub and Render connect through their official hosted MCP servers, so their upstream toolsets stay current and provide broad read/write operations. Vercel's hosted MCP currently only accepts Vercel-approved clients, and OpenCode is not on its published client list; the Vercel plugin therefore uses its REST API with practical typed tools and a bounded, general REST request. The Vercel request tool reaches documented API features including operations that create, edit, deploy, or delete resources. It uses a fixed HTTPS API origin; prompts cannot supply a hostname or change the HTTP method beyond GET, POST, PUT, PATCH, and DELETE. Provider token permissions remain the final access boundary.
 
 ## Configure credentials
 
-Add these environment variables to the Render web service, then redeploy:
+Set these variables on the Render OpenCode service, then redeploy:
 
-- `GITHUB_PERSONAL_ACCESS_TOKEN` — a fine-grained GitHub token with read access to repository metadata, contents, issues, pull requests, and Actions for the repositories OpenCode should inspect.
-- `VERCEL_TOKEN` — a Vercel access token with access to the projects and deployments OpenCode should inspect.
-- `RENDER_API_KEY` — a Render API key. The bundled Render tools issue GET requests only.
+- `GITHUB_PERSONAL_ACCESS_TOKEN` — a GitHub personal access token scoped to the repositories and operations OpenCode should use. Read and write actions require the corresponding token permissions.
+- `VERCEL_TOKEN` — a Vercel access token for the account or team. Keep it limited to the projects and operations needed.
+- `RENDER_API_KEY` — a Render API key scoped to the workspace OpenCode should manage.
 
-Do not put token values in this repository, `opencode.jsonc`, or prompts. If a Render log query is needed, pass the workspace owner ID explicitly to `render_list_logs`; this avoids silently querying the wrong workspace.
+Never place token values in this repository, `opencode.jsonc`, or prompts.
 
-## Tool groups
+## GitHub and Render MCP servers
 
-### GitHub
+The project-root `opencode.jsonc` configures GitHub's `all` remote toolset and Render's hosted MCP. GitHub tools can read and change repositories, issues, pull requests, workflows, and the other toolsets exposed by the official server. Render tools can manage services, deployments, environment variables, workspaces, logs, metrics, and supported database operations. The live upstream servers can add capabilities without rebuilding these plugin files.
 
-- `github_list_repositories`
-- `github_get_repository`
-- `github_get_file`
-- `github_search_code`
-- `github_list_issues`
-- `github_list_pull_requests`
-- `github_list_workflow_runs`
+These servers can perform consequential actions with your token's permissions. Keep token scopes and Render API key workspace scope as narrow as possible. OpenCode's tool permission rules can require approval for selected write tools.
 
-### Vercel
+## Vercel namespace
 
-- `vercel_list_projects`
-- `vercel_get_project`
-- `vercel_list_deployments`
-- `vercel_get_deployment`
-- `vercel_get_deployment_events`
+The Vercel namespace keeps typed tools for common read operations and has an `api_request` tool for other documented REST endpoints. Provide an HTTP `method`, path, and optional `query` and JSON `body`. It can manage teams, domains, project environment variables and deployments within the token's access.
 
-Pass `teamId` when inspecting team-owned Vercel projects. The deployment-events tool requests a bounded page and does not open a live stream.
+Typed tools: `list_projects`, `get_project`, `list_deployments`, `get_deployment`, and `get_deployment_events`.
 
-### Render
+The official Vercel MCP is restricted to client applications approved by Vercel and does not currently list OpenCode. The REST tools therefore provide the OpenCode connection without relying on an unsupported OAuth client.
 
-- `render_list_services`
-- `render_get_service`
-- `render_list_deploys`
-- `render_list_logs`
-- `render_get_metrics`
+## Verification and limits
 
-## API sources
+- Calls use fixed provider API origins, bearer authentication, a 30-second timeout, and a 50,000-character response cap for non-JSON/text responses.
+- The request tool validates paths to keep them on the provider API host; it does not proxy arbitrary URLs.
+- GitHub's remote `all` toolset is large. OpenCode lets you turn off individual MCP tools or groups using its `tools` configuration if the model context gets crowded.
+- Provider APIs may not expose every feature available in a web dashboard or separate product UI. Use the official MCP client integration where a provider requires an approved OAuth client.
+- No credentials are committed to the repository.
 
+## References
+
+- OpenCode MCP server configuration: <https://opencode.ai/v2/docs/mcp-servers>
 - GitHub REST API: <https://docs.github.com/en/rest>
 - Vercel REST API: <https://vercel.com/docs/rest-api>
 - Render REST API: <https://render.com/docs/api>
 - OpenCode plugin API: <https://opencode.ai/docs/plugins/>
-
-The official Vercel MCP currently documents a reviewed-client allow-list that does not list OpenCode. This deployment therefore uses Vercel's documented REST API for the Vercel group rather than depending on an unsupported OAuth client.
