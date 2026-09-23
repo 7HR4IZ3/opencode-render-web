@@ -1,6 +1,6 @@
 import { Plugin } from "@opencode/plugin";
 import { Schema } from "effect";
-import { boundedLimit, getJson, pathSegment, queryUrl, requiredToken } from "./platform-api";
+import { boundedLimit, getJson, jsonContent, pathSegment, queryUrl, requiredToken } from "./platform-api";
 
 const serviceInput = Schema.Struct({ serviceId: Schema.String });
 
@@ -31,14 +31,14 @@ export default Plugin.define({
           limit: Schema.optional(Schema.Number),
         }),
         options: { namespace: "render" },
-        execute: async ({ ownerId, name, type, limit }) => renderGet(
+        execute: async ({ ownerId, name, type, limit }) => jsonContent(renderGet(
           renderUrl("/services", {
             ownerId,
             name,
             type,
             limit: boundedLimit(limit, 20, 100),
           }),
-        ),
+        )),
       });
 
       editor.add({
@@ -46,9 +46,9 @@ export default Plugin.define({
         description: "Get the configuration and current state of a Render service.",
         input: serviceInput,
         options: { namespace: "render" },
-        execute: async ({ serviceId }) => renderGet(
+        execute: async ({ serviceId }) => jsonContent(renderGet(
           `https://api.render.com/v1/services/${pathSegment(serviceId)}`,
-        ),
+        )),
       });
 
       editor.add({
@@ -60,12 +60,12 @@ export default Plugin.define({
           status: Schema.optional(Schema.String),
         }),
         options: { namespace: "render" },
-        execute: async ({ serviceId, limit, status }) => renderGet(
+        execute: async ({ serviceId, limit, status }) => jsonContent(renderGet(
           renderUrl(`/services/${pathSegment(serviceId)}/deploys`, {
             limit: boundedLimit(limit, 20, 100),
             status,
           }),
-        ),
+        )),
       });
 
       editor.add({
@@ -89,7 +89,7 @@ export default Plugin.define({
           if (resourceIds.length === 0 || resourceIds.length > 20) {
             throw new Error("Provide between 1 and 20 Render resource IDs.");
           }
-          return renderGet(
+          return jsonContent(renderGet(
             renderUrl("/logs", {
               ownerId,
               resource: resourceIds,
@@ -103,7 +103,7 @@ export default Plugin.define({
               statusCode,
               limit: boundedLimit(limit, 100, 100),
             }),
-          );
+          ));
         },
       });
 
@@ -145,7 +145,7 @@ export default Plugin.define({
               }),
             ),
           })));
-          return { resourceId, metrics: results };
+          return jsonContent({ resourceId, metrics: results });
         },
       });
     });
