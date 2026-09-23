@@ -24,7 +24,7 @@ The Vercel namespace keeps typed tools for common read operations and has an `ap
 
 Typed tools: `list_projects`, `get_project`, `list_deployments`, `get_deployment`, and `get_deployment_events`.
 
-The official Vercel MCP is restricted to client applications approved by Vercel and does not currently list OpenCode. The REST tools therefore provide the OpenCode connection without relying on an unsupported OAuth client.
+The Vercel hosted MCP is enabled in the default OpenCode configuration alongside the REST tools. It uses OpenCode's remote MCP OAuth flow; Vercel's current approved-client list does not yet include OpenCode, so authentication may be rejected. The REST tools remain available as a fallback.
 
 ## Verification and limits
 
