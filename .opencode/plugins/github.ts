@@ -1,6 +1,6 @@
 import { Plugin } from "@opencode/plugin";
 import { Schema } from "effect";
-import { boundedLimit, getJson, pathSegment, queryUrl, requiredToken } from "./platform-api";
+import { boundedLimit, getJson, jsonContent, pathSegment, queryUrl, requiredToken } from "./platform-api";
 
 const repositoryInput = Schema.Struct({
   owner: Schema.String,
@@ -62,14 +62,14 @@ export default Plugin.define({
         description: "List GitHub repositories visible to the configured account.",
         input: repositoryListInput,
         options: { namespace: "github" },
-        execute: async ({ visibility, affiliation, perPage }) => githubGet(
+        execute: async ({ visibility, affiliation, perPage }) => jsonContent(githubGet(
           githubUrl("/user/repos", {
             visibility,
             affiliation,
             sort: "updated",
             per_page: boundedLimit(perPage, 30, 100),
           }),
-        ),
+        )),
       });
 
       editor.add({
@@ -77,9 +77,9 @@ export default Plugin.define({
         description: "Get repository metadata, default branch, and permissions.",
         input: repositoryInput,
         options: { namespace: "github" },
-        execute: async ({ owner, repo }) => githubGet(
+        execute: async ({ owner, repo }) => jsonContent(githubGet(
           `https://api.github.com${repositoryPath(owner, repo)}`,
-        ),
+        )),
       });
 
       editor.add({
@@ -100,22 +100,22 @@ export default Plugin.define({
             download_url?: string | null;
           }>(githubUrl(`${repositoryPath(owner, repo)}/contents/${safePath}`, { ref }));
 
-          if (result.type !== "file") return result;
+          if (result.type !== "file") return jsonContent(result);
           if (result.encoding !== "base64" || !result.content) {
-            return { path: result.path, sha: result.sha, size: result.size, content: null, note: "GitHub did not return inline text content for this file." };
+            return jsonContent({ path: result.path, sha: result.sha, size: result.size, content: null, note: "GitHub did not return inline text content for this file." });
           }
 
           const binary = atob(result.content.replace(/\s/g, ""));
           const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
           try {
-            return {
+            return jsonContent({
               path: result.path,
               sha: result.sha,
               size: result.size,
               content: new TextDecoder("utf-8", { fatal: true }).decode(bytes),
-            };
+            });
           } catch {
-            return { path: result.path, sha: result.sha, size: result.size, content: null, note: "This file is not valid UTF-8 text." };
+            return jsonContent({ path: result.path, sha: result.sha, size: result.size, content: null, note: "This file is not valid UTF-8 text." });
           }
         },
       });
@@ -125,12 +125,12 @@ export default Plugin.define({
         description: "Search code in repositories accessible to the configured GitHub account.",
         input: searchInput,
         options: { namespace: "github" },
-        execute: async ({ query, perPage }) => githubGet(
+        execute: async ({ query, perPage }) => jsonContent(githubGet(
           githubUrl("/search/code", {
             q: query,
             per_page: boundedLimit(perPage, 20, 100),
           }),
-        ),
+        )),
       });
 
       editor.add({
@@ -145,7 +145,7 @@ export default Plugin.define({
               per_page: boundedLimit(perPage, 30, 100),
             }),
           );
-          return issues.filter((item) => !item.pull_request);
+          return jsonContent(issues.filter((item) => !item.pull_request));
         },
       });
 
@@ -154,12 +154,12 @@ export default Plugin.define({
         description: "List pull requests in a repository.",
         input: listInput,
         options: { namespace: "github" },
-        execute: async ({ owner, repo, state, perPage }) => githubGet(
+        execute: async ({ owner, repo, state, perPage }) => jsonContent(githubGet(
           githubUrl(`${repositoryPath(owner, repo)}/pulls`, {
             state: state ?? "open",
             per_page: boundedLimit(perPage, 30, 100),
           }),
-        ),
+        )),
       });
 
       editor.add({
@@ -171,11 +171,11 @@ export default Plugin.define({
           perPage: Schema.optional(Schema.Number),
         }),
         options: { namespace: "github" },
-        execute: async ({ owner, repo, perPage }) => githubGet(
+        execute: async ({ owner, repo, perPage }) => jsonContent(githubGet(
           githubUrl(`${repositoryPath(owner, repo)}/actions/runs`, {
             per_page: boundedLimit(perPage, 20, 100),
           }),
-        ),
+        )),
       });
     });
   },
