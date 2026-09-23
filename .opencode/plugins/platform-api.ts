@@ -85,6 +85,9 @@ export async function apiRequest(
     throw new Error(`${provider} API request failed (${response.status} ${response.statusText})${detail ? `: ${detail}` : ""}`);
   }
   if (!text) return { status: response.status, ok: true };
+  if (text.length > 100_000) {
+    return `${text.slice(0, 100_000)}\n[response truncated at 100,000 characters]`;
+  }
   try {
     return JSON.parse(text) as unknown;
   } catch {
