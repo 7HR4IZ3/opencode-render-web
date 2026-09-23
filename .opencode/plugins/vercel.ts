@@ -1,6 +1,6 @@
 import { Plugin } from "@opencode/plugin";
 import { Schema } from "effect";
-import { boundedLimit, envValue, getJson, pathSegment, queryUrl, requiredToken } from "./platform-api";
+import { boundedLimit, envValue, getJson, jsonContent, pathSegment, queryUrl, requiredToken } from "./platform-api";
 
 const projectInput = Schema.Struct({
   project: Schema.String,
@@ -41,12 +41,12 @@ export default Plugin.define({
           limit: Schema.optional(Schema.Number),
         }),
         options: { namespace: "vercel" },
-        execute: async ({ teamId, limit }) => vercelGet(
+        execute: async ({ teamId, limit }) => jsonContent(vercelGet(
           vercelUrl("/v9/projects", {
             teamId: selectedTeam(teamId),
             limit: boundedLimit(limit, 20, 100),
           }),
-        ),
+        )),
       });
 
       editor.add({
@@ -54,9 +54,9 @@ export default Plugin.define({
         description: "Get project configuration and deployment metadata by project name or ID.",
         input: projectInput,
         options: { namespace: "vercel" },
-        execute: async ({ project, teamId }) => vercelGet(
+        execute: async ({ project, teamId }) => jsonContent(vercelGet(
           vercelUrl(`/v9/projects/${pathSegment(project)}`, { teamId: selectedTeam(teamId) }),
-        ),
+        )),
       });
 
       editor.add({
@@ -70,7 +70,7 @@ export default Plugin.define({
           limit: Schema.optional(Schema.Number),
         }),
         options: { namespace: "vercel" },
-        execute: async ({ projectId, teamId, target, state, limit }) => vercelGet(
+        execute: async ({ projectId, teamId, target, state, limit }) => jsonContent(vercelGet(
           vercelUrl("/v6/deployments", {
             projectId,
             teamId: selectedTeam(teamId),
@@ -78,7 +78,7 @@ export default Plugin.define({
             state,
             limit: boundedLimit(limit, 20, 100),
           }),
-        ),
+        )),
       });
 
       editor.add({
@@ -86,9 +86,9 @@ export default Plugin.define({
         description: "Get deployment state, target, project, and deployment URL.",
         input: deploymentInput,
         options: { namespace: "vercel" },
-        execute: async ({ deployment, teamId }) => vercelGet(
+        execute: async ({ deployment, teamId }) => jsonContent(vercelGet(
           vercelUrl(`/v13/deployments/${pathSegment(deployment)}`, { teamId: selectedTeam(teamId) }),
-        ),
+        )),
       });
 
       editor.add({
@@ -103,7 +103,7 @@ export default Plugin.define({
           limit: Schema.optional(Schema.Number),
         }),
         options: { namespace: "vercel" },
-        execute: async ({ deployment, teamId, buildId, since, until, limit }) => vercelGet(
+        execute: async ({ deployment, teamId, buildId, since, until, limit }) => jsonContent(vercelGet(
           vercelUrl(`/v3/deployments/${pathSegment(deployment)}/events`, {
             teamId: selectedTeam(teamId),
             name: buildId,
@@ -113,7 +113,7 @@ export default Plugin.define({
             follow: 0,
             limit: boundedLimit(limit, 100, 250),
           }),
-        ),
+        )),
       });
     });
   },
