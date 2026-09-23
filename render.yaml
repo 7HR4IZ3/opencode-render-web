@@ -9,6 +9,12 @@ services:
     healthCheckPath: /site.webmanifest
     autoDeployTrigger: commit
     envVars:
+      - key: GITHUB_PERSONAL_ACCESS_TOKEN
+        sync: false
+      - key: VERCEL_TOKEN
+        sync: false
+      - key: RENDER_API_KEY
+        sync: false
       - key: OPENCODE_SERVER_PASSWORD
         sync: false
       - key: OPENCODE_AUTH_B64
