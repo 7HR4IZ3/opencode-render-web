@@ -36,6 +36,10 @@ export function boundedLimit(value: number | undefined, fallback = 20, max = 100
   return Math.max(1, Math.min(Math.floor(value), max));
 }
 
+export async function jsonContent<T>(value: T | Promise<T>) {
+  return { content: JSON.stringify(await value, null, 2) };
+}
+
 export async function getJson<T>(
   provider: string,
   url: string,
