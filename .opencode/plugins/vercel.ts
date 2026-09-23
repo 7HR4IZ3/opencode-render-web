@@ -1,6 +1,6 @@
 import { Plugin } from "@opencode/plugin";
 import { Schema } from "effect";
-import { boundedLimit, envValue, getJson, jsonContent, pathSegment, queryUrl, requiredToken } from "./platform-api";
+import { apiRequest, boundedLimit, envValue, getJson, jsonContent, pathSegment, queryUrl, requiredToken, type ApiMethod } from "./platform-api";
 
 const projectInput = Schema.Struct({
   project: Schema.String,
@@ -24,6 +24,12 @@ function selectedTeam(teamId?: string) {
   return teamId ?? envValue("VERCEL_TEAM_ID");
 }
 
+function apiMethod(value: string): ApiMethod {
+  const allowed: ApiMethod[] = ["GET", "POST", "PUT", "PATCH", "DELETE"];
+  if (!allowed.includes(value as ApiMethod)) throw new Error(`method must be one of: ${allowed.join(", ")}`);
+  return value as ApiMethod;
+}
+
 export default Plugin.define({
   id: "opencode.vercel-readonly",
   async setup(ctx) {
@@ -31,6 +37,25 @@ export default Plugin.define({
       editor.namespace({
         name: "vercel",
         description: "Read-only Vercel project, deployment, and build log tools.",
+      });
+
+      editor.add({
+        name: "api_request",
+        description: "Call any Vercel REST API endpoint using your token's permissions. Supports GET, POST, PUT, PATCH, and DELETE for projects, deployments, domains, environment variables, teams, access controls, and other documented API resources. Write methods change Vercel state.",
+        input: Schema.Struct({
+          method: Schema.String,
+          path: Schema.String,
+          query: Schema.optional(Schema.Record({
+            key: Schema.String,
+            value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean, Schema.Array(Schema.String)),
+          })),
+          body: Schema.optional(Schema.Unknown),
+        }),
+        options: { namespace: "vercel" },
+        execute: async ({ method, path, query, body }) => jsonContent(apiRequest(
+          "Vercel", "https://api.vercel.com", "", path, apiMethod(method),
+          requiredToken("VERCEL_TOKEN"), query, body,
+        )),
       });
 
       editor.add({
