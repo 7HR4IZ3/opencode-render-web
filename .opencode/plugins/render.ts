@@ -134,7 +134,7 @@ export default Plugin.define({
           const results = await Promise.all(uniqueTypes.map(async (type) => ({
             type,
             data: await renderGet(
-              renderUrl(paths[type], {
+              renderUrl(paths[type]!, {
                 resource: resourceId,
                 startTime,
                 endTime,
