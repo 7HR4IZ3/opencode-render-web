@@ -23,6 +23,14 @@
       "type": "remote",
       "url": "https://mcp.vercel.com",
       "enabled": true
+    },
+    "gitlab_mcp": {
+      "type": "remote",
+      "url": "https://gitlab.com/api/v4/mcp",
+      "enabled": true,
+      "headers": {
+        "X-Gitlab-Mcp-Server-Tool-Name-Prefix": "gitlab_"
+      }
     }
   }
 }

@@ -85,7 +85,7 @@ The Blueprint uses the Free plan. The OpenCode SQLite store is durable through L
 
 ## Platform integrations
 
-The OpenCode runtime connects to the official GitHub and Render MCP servers for broad read/write workflows, and includes typed plus general REST tools for Vercel. Configure the provider credentials in the Render service environment; setup and tool details are in [PLATFORM_INTEGRATIONS.md](PLATFORM_INTEGRATIONS.md).
+The OpenCode runtime connects to the official GitHub, GitLab, and Render MCP servers, and includes typed plus general REST tools for Vercel and GitLab. Configure the provider credentials in the Render service environment; setup and tool details are in [PLATFORM_INTEGRATIONS.md](PLATFORM_INTEGRATIONS.md).
 
 ## Verification
 

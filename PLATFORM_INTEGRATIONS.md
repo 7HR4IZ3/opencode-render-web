@@ -1,6 +1,6 @@
 # OpenCode platform integrations
 
-GitHub and Render connect through their official hosted MCP servers, so their upstream toolsets stay current and provide broad read/write operations. Vercel's hosted MCP currently only accepts Vercel-approved clients, and OpenCode is not on its published client list; the Vercel plugin therefore uses its REST API with practical typed tools and a bounded, general REST request. The Vercel request tool reaches documented API features including operations that create, edit, deploy, or delete resources. It uses a fixed HTTPS API origin; prompts cannot supply a hostname or change the HTTP method beyond GET, POST, PUT, PATCH, and DELETE. Provider token permissions remain the final access boundary.
+GitHub, GitLab, and Render connect through their official MCP servers for provider-native tools. GitLab's instance-hosted MCP uses OAuth and exposes its default repository, issue/work item, merge request, and CI toolsets. Vercel's hosted MCP requires an approved client and does not currently list OpenCode, so the Vercel plugin retains typed tools and a bounded REST API request as its fallback. GitLab also has a token-based REST tool for API endpoints or environments where its MCP tools are unavailable. Provider permissions remain the final access boundary.
 
 ## Configure credentials
 
@@ -9,14 +9,22 @@ Set these variables on the Render OpenCode service, then redeploy:
 - `GITHUB_PERSONAL_ACCESS_TOKEN` — a GitHub personal access token scoped to the repositories and operations OpenCode should use. Read and write actions require the corresponding token permissions.
 - `VERCEL_TOKEN` — a Vercel access token for the account or team. Keep it limited to the projects and operations needed.
 - `RENDER_API_KEY` — a Render API key scoped to the workspace OpenCode should manage.
+- `GITLAB_TOKEN` — optional GitLab access token for the REST fallback tools. Use a project or group token where possible; API writes require the corresponding token scope.
+- `GITLAB_URL` — optional HTTPS GitLab instance base URL for the REST fallback. Defaults to `https://gitlab.com`.
 
 Never place token values in this repository, `opencode.jsonc`, or prompts.
 
-## GitHub and Render MCP servers
+## GitHub, GitLab, and Render MCP servers
 
-The project-root `opencode.jsonc` configures GitHub's `all` remote toolset and Render's hosted MCP. GitHub tools can read and change repositories, issues, pull requests, workflows, and the other toolsets exposed by the official server. Render tools can manage services, deployments, environment variables, workspaces, logs, metrics, and supported database operations. The live upstream servers can add capabilities without rebuilding these plugin files.
+The project-root `opencode.jsonc` configures GitHub's `all` remote toolset, GitLab's instance-hosted MCP at `https://gitlab.com/api/v4/mcp`, and Render's hosted MCP. GitLab uses OAuth; on first use OpenCode should prompt for authorization, or you can run `opencode mcp auth gitlab_mcp` in a terminal. GitLab.com may require an Owner to allow MCP access for the top-level group. Its default toolsets cover core project operations, repository files, issues/work items, merge requests, and CI. GitHub tools cover repository changes, issues, pull requests, workflows, and upstream toolsets. Render tools cover workspaces, services, deployments, environment variables, logs, metrics, and supported database operations.
 
 These servers can perform consequential actions with your token's permissions. Keep token scopes and Render API key workspace scope as narrow as possible. OpenCode's tool permission rules can require approval for selected write tools.
+
+## GitLab REST tools
+
+The `gitlab_api` namespace adds `list_projects`, `get_project`, `list_issues`, `list_merge_requests`, `list_pipelines`, and `api_request`. These use `GITLAB_TOKEN`; the generic request supports GET, POST, PUT, PATCH, and DELETE under the configured instance's `/api/v4` endpoint. The token-based tools are optional when the official GitLab MCP OAuth connection is working.
+
+Set `GITLAB_URL` only for GitLab Self-Managed or a non-default GitLab base URL. It must be an HTTPS base URL. The request tool keeps calls within that configured instance's REST API; it does not accept arbitrary hostnames. Write and delete requests can change GitLab resources, subject to token scopes and the authenticated user's permissions.
 
 ## Vercel namespace
 
@@ -28,9 +36,9 @@ The Vercel hosted MCP is enabled in the default OpenCode configuration alongside
 
 ## Verification and limits
 
-- Calls use fixed provider API origins, bearer authentication, a 30-second timeout, a 100,000-character cap for JSON responses, and a 50,000-character cap for non-JSON/text responses.
+- REST tool calls use configured provider API origins, bearer authentication, a 30-second timeout, and bounded response sizes. GitLab REST requests stay under the configured GitLab instance API path.
 - The request tool validates paths to keep them on the provider API host; it does not proxy arbitrary URLs.
-- GitHub's remote `all` toolset is large. OpenCode lets you turn off individual MCP tools or groups using its `tools` configuration if the model context gets crowded.
+- GitHub's remote `all` toolset is large. GitLab MCP's default tool groups are enabled; GitLab offers additional opt-in toolsets depending on instance support. OpenCode lets you turn off individual MCP tools or groups using its `tools` configuration if the model context gets crowded.
 - Provider APIs may not expose every feature available in a web dashboard or separate product UI. Use the official MCP client integration where a provider requires an approved OAuth client.
 - No credentials are committed to the repository.
 
@@ -38,6 +46,8 @@ The Vercel hosted MCP is enabled in the default OpenCode configuration alongside
 
 - OpenCode MCP server configuration: <https://opencode.ai/v2/docs/mcp-servers>
 - GitHub REST API: <https://docs.github.com/en/rest>
+- GitLab MCP server: <https://docs.gitlab.com/user/model_context_protocol/mcp_server/>
+- GitLab REST API authentication: <https://docs.gitlab.com/api/rest/authentication/>
 - Vercel REST API: <https://vercel.com/docs/rest-api>
 - Render REST API: <https://render.com/docs/api>
 - OpenCode plugin API: <https://opencode.ai/docs/plugins/>
