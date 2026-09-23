@@ -18,6 +18,11 @@
       "headers": {
         "Authorization": "Bearer {env:RENDER_API_KEY}"
       }
+    },
+    "vercel_mcp": {
+      "type": "remote",
+      "url": "https://mcp.vercel.com",
+      "enabled": true
     }
   }
 }
