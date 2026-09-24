@@ -31,8 +31,8 @@ if [ "$internal_port" = "$public_port" ] || [ "$internal_port" = "$api_port" ]; 
 fi
 
 case "$custom_proxy_ports" in
-  *[!0-9,]*)
-    echo "PROXY_ALLOWED_PORTS must be a comma-separated list of numeric ports" >&2
+  *[!0123456789,-]*)
+    echo "PROXY_ALLOWED_PORTS must contain comma-separated ports or ranges such as 3001,4173-4190" >&2
     exit 1
     ;;
 esac
@@ -63,35 +63,71 @@ if [ -n "$custom_proxy_ports" ]; then
   set -- $custom_proxy_ports
   IFS=$saved_ifs
   seen_ports=","
-  for allowed_port do
-    case "$allowed_port" in
-      ''|0*|*[!0-9]*)
-        echo "Each PROXY_ALLOWED_PORTS entry must be a decimal port without leading zeroes" >&2
-        exit 1
+  allowed_count=0
+  for allowed_spec do
+    case "$allowed_spec" in
+      *-*)
+        range_start=${allowed_spec%%-*}
+        range_end=${allowed_spec#*-}
+        case "$range_end" in
+          *-*)
+            echo "Each PROXY_ALLOWED_PORTS range must have one dash, for example 3001-3999" >&2
+            exit 1
+            ;;
+        esac
+        ;;
+      *)
+        range_start=$allowed_spec
+        range_end=$allowed_spec
         ;;
     esac
-    if [ "${#allowed_port}" -gt 5 ] || [ "$allowed_port" -lt 1024 ] || [ "$allowed_port" -gt 65535 ]; then
-      echo "Custom proxy ports must be between 1024 and 65535" >&2
+
+    for range_bound in "$range_start" "$range_end"; do
+      case "$range_bound" in
+        ''|0*|*[!0123456789]*)
+          echo "Each port or range boundary must be decimal without leading zeroes" >&2
+          exit 1
+          ;;
+      esac
+      if [ "${#range_bound}" -gt 5 ] || [ "$range_bound" -lt 1024 ] || [ "$range_bound" -gt 65535 ]; then
+        echo "Custom proxy ports must be between 1024 and 65535" >&2
+        exit 1
+      fi
+    done
+
+    if [ "$range_start" -gt "$range_end" ]; then
+      echo "PROXY_ALLOWED_PORTS range start must not exceed its end" >&2
       exit 1
     fi
-    case "$allowed_port" in
-      18012|18013|19099)
-        echo "Port $allowed_port is reserved by Render" >&2
+
+    allowed_port=$range_start
+    while [ "$allowed_port" -le "$range_end" ]; do
+      allowed_count=$((allowed_count + 1))
+      if [ "$allowed_count" -gt 4096 ]; then
+        echo "PROXY_ALLOWED_PORTS may expose at most 4096 distinct ports" >&2
         exit 1
-        ;;
-    esac
-    if [ "$allowed_port" = "$internal_port" ] || [ "$allowed_port" = "$public_port" ] || [ "$allowed_port" = "$api_port" ]; then
-      echo "Port $allowed_port is already used by OpenCode or the service proxy" >&2
-      exit 1
-    fi
-    case "$seen_ports" in
-      *,"$allowed_port",*)
-        echo "PROXY_ALLOWED_PORTS contains duplicate port $allowed_port" >&2
+      fi
+
+      case "$allowed_port" in
+        18012|18013|19099)
+          echo "Port $allowed_port is reserved by Render" >&2
+          exit 1
+          ;;
+      esac
+      if [ "$allowed_port" = "$internal_port" ] || [ "$allowed_port" = "$public_port" ] || [ "$allowed_port" = "$api_port" ]; then
+        echo "Port $allowed_port is already used by OpenCode or the service proxy" >&2
         exit 1
-        ;;
-    esac
-    seen_ports="$seen_ports$allowed_port,"
-    printf '    ~^/port/%s(?:/|$) %s;\n' "$allowed_port" "$allowed_port" >> "$allowed_ports_file"
+      fi
+      case "$seen_ports" in
+        *,"$allowed_port",*)
+          echo "PROXY_ALLOWED_PORTS contains duplicate port $allowed_port" >&2
+          exit 1
+          ;;
+      esac
+      seen_ports="$seen_ports$allowed_port,"
+      printf '    ~^/port/%s(?:/|$) %s;\\n' "$allowed_port" "$allowed_port" >> "$allowed_ports_file"
+      allowed_port=$((allowed_port + 1))
+    done
   done
 fi
 
