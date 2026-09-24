@@ -23,6 +23,12 @@ services:
         value: https://gitlab.com
       - key: GITLAB_MCP_URL
         value: https://gitlab.com/api/v4/mcp
+      - key: TERMINAL_USERNAME
+        sync: false
+      - key: TERMINAL_PASSWORD
+        sync: false
+      - key: TERMINAL_PORT
+        value: "4098"
       - key: OPENCODE_SERVER_PASSWORD
         sync: false
       - key: OPENCODE_AUTH_B64
