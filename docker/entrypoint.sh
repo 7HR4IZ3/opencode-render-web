@@ -49,6 +49,7 @@ mkdir -p "$proxy_dir/client_body_temp" "$proxy_dir/proxy_temp"
 allowed_ports_file="$proxy_dir/allowed-ports.map"
 manual_ports_file="$proxy_dir/manual-ports.map"
 proxy_config="$proxy_dir/nginx.conf"
+nginx_error_log="$proxy_dir/nginx-error.log"
 : > "$allowed_ports_file"
 : > "$manual_ports_file"
 
@@ -136,7 +137,7 @@ fi
 cat > "$proxy_config" <<EOF
 worker_processes 1;
 pid $proxy_dir/nginx.pid;
-error_log /dev/stderr notice;
+error_log $nginx_error_log notice;
 
 events {
   worker_connections 1024;
@@ -213,7 +214,7 @@ http {
 }
 EOF
 
-nginx -t -c "$proxy_config"
+nginx -t -e "$nginx_error_log" -c "$proxy_config"
 
 
 # Decode at runtime, never at Docker build time. Build args and image layers
@@ -356,7 +357,7 @@ fi
 proxy_pid=""
 api_proxy_pid=""
 
-nginx -c "$proxy_config" -g "daemon off;" &
+nginx -e "$nginx_error_log" -c "$proxy_config" -g "daemon off;" &
 proxy_pid=$!
 
 if [ "$api_port" != "$public_port" ]; then
