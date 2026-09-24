@@ -26,6 +26,10 @@ The `port_proxy_expose_port` OpenCode tool can also expose one already-listening
 This routes only processes running inside the OpenCode container; it does not expose ports on separate Render services. Add only ports for apps intended to be public. The proxy does not add authentication to those apps, and applications that generate absolute asset URLs may need a base-path setting for `/port/<port>`.
 
 
+## Authenticated web terminal
+
+Open `https://<service>.onrender.com/terminal` for a full-page xterm.js terminal attached to a tmux session. The route prompts for HTTP Basic credentials and uses a WebSocket-backed PTY. Configure `TERMINAL_USERNAME` and a unique `TERMINAL_PASSWORD` of at least 20 characters in Render; the terminal backend stays on the internal `TERMINAL_PORT` and shares the public Nginx listener. See [TERMINAL.md](TERMINAL.md) for setup and security details.
+
 ## Storage decision
 
 The default Blueprint targets Render Free with no persistent disk. Render’s Free filesystem is writable while the instance is running, but it is ephemeral: local SQLite, logs, auth files, and workspace changes disappear on restart, redeploy, or idle spin-down. The Blueprint therefore uses a file-backed database at `/var/lib/opencode/opencode.db` and enables Litestream to restore it from, and replicate its WAL to, the configured S3-compatible bucket.
