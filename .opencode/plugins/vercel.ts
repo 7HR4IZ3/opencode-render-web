@@ -140,6 +140,10 @@ export default Plugin.define({
           }),
         )),
       });
+    }).catch((error) => {
+      const detail = error instanceof Error ? error.stack ?? error.message : String(error);
+      console.error("[opencode.vercel] tool.transform failed:", detail);
+      throw error;
     });
   },
 });
