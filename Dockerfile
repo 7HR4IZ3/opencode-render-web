@@ -23,7 +23,8 @@ RUN apk add --no-cache ca-certificates git socat nginx \
   && addgroup -S opencode \
   && adduser -S -G opencode -h /var/lib/opencode opencode \
   && mkdir -p /var/lib/opencode /opt/opencode-config \
-  && chown -R opencode:opencode /var/lib/opencode /opt/opencode-config
+  && mkdir -p /var/lib/nginx/logs \
+  && chown -R opencode:opencode /var/lib/opencode /var/lib/nginx /opt/opencode-config
 
 COPY --chmod=755 docker/entrypoint.sh /usr/local/bin/opencode-render-entrypoint
 COPY --from=litestream /usr/local/bin/litestream /usr/local/bin/litestream
