@@ -24,13 +24,14 @@
       },
       "vercel_mcp": {
         "type": "remote",
-        "url": "https://mcp.vercel.com"
+        "url": "{env:VERCEL_MCP_URL}"
       },
       "gitlab_mcp": {
         "type": "remote",
-        "url": "https://gitlab.com/api/v4/mcp",
+        "url": "{env:GITLAB_MCP_URL}",
         "headers": {
-          "X-Gitlab-Mcp-Server-Tool-Name-Prefix": "gitlab_"
+          "X-Gitlab-Mcp-Server-Tool-Name-Prefix": "gitlab_",
+          "X-Gitlab-Enabled-Mcp-Server-Toolsets": "all"
         }
       }
     }
