@@ -15,6 +15,7 @@ const dataRoot =
   join(process.env.HOME ?? "/tmp", ".local", "share");
 const proxyDirectory = join(dataRoot, "proxy");
 const nginxConfig = join(proxyDirectory, "nginx.conf");
+const nginxErrorLog = join(proxyDirectory, "nginx-error.log");
 const envPortsFile = join(proxyDirectory, "allowed-ports.map");
 const manualPortsFile = join(proxyDirectory, "manual-ports.map");
 
@@ -75,7 +76,7 @@ async function assertHttpService(port: number) {
 function runNginx(args: string[]) {
   const result = spawnSync(
     "nginx",
-    [...args.slice(0, args.indexOf("-c")), "-e", "/dev/stderr", ...args.slice(args.indexOf("-c"))],
+    [...args.slice(0, args.indexOf("-c")), "-e", nginxErrorLog, ...args.slice(args.indexOf("-c"))],
     { encoding: "utf8" },
   );
   if (result.error || result.status !== 0) {
