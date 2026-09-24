@@ -1,35 +1,33 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
-    "github": {
-      "type": "remote",
-      "url": "https://api.githubcopilot.com/mcp/x/all",
-      "enabled": true,
-      "oauth": false,
-      "headers": {
-        "Authorization": "Bearer {env:GITHUB_PERSONAL_ACCESS_TOKEN}"
-      }
-    },
-    "render": {
-      "type": "remote",
-      "url": "https://mcp.render.com/mcp",
-      "enabled": true,
-      "oauth": false,
-      "headers": {
-        "Authorization": "Bearer {env:RENDER_API_KEY}"
-      }
-    },
-    "vercel_mcp": {
-      "type": "remote",
-      "url": "https://mcp.vercel.com",
-      "enabled": true
-    },
-    "gitlab_mcp": {
-      "type": "remote",
-      "url": "https://gitlab.com/api/v4/mcp",
-      "enabled": true,
-      "headers": {
-        "X-Gitlab-Mcp-Server-Tool-Name-Prefix": "gitlab_"
+    "servers": {
+      "github": {
+        "type": "remote",
+        "url": "https://api.githubcopilot.com/mcp/x/all",
+        "oauth": false,
+        "headers": {
+          "Authorization": "Bearer {env:GITHUB_PERSONAL_ACCESS_TOKEN}"
+        }
+      },
+      "render": {
+        "type": "remote",
+        "url": "https://mcp.render.com/mcp",
+        "oauth": false,
+        "headers": {
+          "Authorization": "Bearer {env:RENDER_API_KEY}"
+        }
+      },
+      "vercel_mcp": {
+        "type": "remote",
+        "url": "https://mcp.vercel.com"
+      },
+      "gitlab_mcp": {
+        "type": "remote",
+        "url": "https://gitlab.com/api/v4/mcp",
+        "headers": {
+          "X-Gitlab-Mcp-Server-Tool-Name-Prefix": "gitlab_"
+        }
       }
     }
   }
