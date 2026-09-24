@@ -15,6 +15,15 @@ The v2 API is on the same server as the UI, so it remains one session/event bus 
 
 Render only exposes one public HTTP port per web service. Its additional-port support is private-network-only, and Free services cannot receive private-network traffic, so an external API client should use `https://<service>.onrender.com/api/...` on the public URL. Port `4097` remains useful for local Docker and paid/private Render deployments.
 
+## Proxy additional in-container apps
+
+The Nginx front proxy listens on Render's single public `PORT`, forwards normal paths to OpenCode on `OPENCODE_INTERNAL_PORT`, and can route selected `/port/<port>/…` paths to other HTTP services running inside the same container. Render forwards public traffic to one port; the proxy makes multiple local services reachable through that listener. citeturn47search0
+
+Set `PROXY_ALLOWED_PORTS` on the Render service to a comma-separated allowlist, for example `3001,4173`. Then start the additional app inside the same container on `127.0.0.1:<port>` and open `https://<service>.onrender.com/port/<port>/`. The proxy strips the `/port/<port>` prefix, forwards `X-Forwarded-Prefix`, and supports WebSocket upgrades. The port must be between 1024 and 65535 and must not overlap OpenCode, the Render listener, or the private API listener. An unlisted port returns 404.
+
+This routes only processes running inside the OpenCode container; it does not expose ports on separate Render services. Add only ports for apps intended to be public. The proxy does not add authentication to those apps, and applications that generate absolute asset URLs may need a base-path setting for `/port/<port>`.
+
+
 ## Storage decision
 
 The default Blueprint targets Render Free with no persistent disk. Render’s Free filesystem is writable while the instance is running, but it is ephemeral: local SQLite, logs, auth files, and workspace changes disappear on restart, redeploy, or idle spin-down. The Blueprint therefore uses a file-backed database at `/var/lib/opencode/opencode.db` and enables Litestream to restore it from, and replicate its WAL to, the configured S3-compatible bucket.
