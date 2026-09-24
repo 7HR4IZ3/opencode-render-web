@@ -110,12 +110,12 @@ http {
   proxy_temp_path $proxy_dir/proxy_temp;
   client_max_body_size 1g;
 
-  map $custom_port $custom_upstream_port {
+  map \$custom_port \$custom_upstream_port {
     default "";
     include $allowed_ports_file;
   }
 
-  map $http_upgrade $connection_upgrade {
+  map \$http_upgrade \$connection_upgrade {
     default upgrade;
     "" close;
   }
@@ -125,13 +125,13 @@ http {
     server_tokens off;
 
     proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Host $host;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection $connection_upgrade;
+    proxy_set_header Host \$host;
+    proxy_set_header X-Real-IP \$remote_addr;
+    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Host \$host;
+    proxy_set_header X-Forwarded-Proto \$scheme;
+    proxy_set_header Upgrade \$http_upgrade;
+    proxy_set_header Connection \$connection_upgrade;
     proxy_connect_timeout 10s;
     proxy_read_timeout 3600s;
     proxy_send_timeout 3600s;
@@ -140,11 +140,11 @@ http {
     proxy_redirect off;
 
     location ~ ^/port/(?<custom_port>[0-9]{1,5})(?<custom_uri>/.*)?$ {
-      if ($custom_upstream_port = "") { return 404; }
-      set $proxy_uri $custom_uri;
-      if ($proxy_uri = "") { set $proxy_uri /; }
-      proxy_set_header X-Forwarded-Prefix /port/$custom_port;
-      proxy_pass http://127.0.0.1:$custom_upstream_port$proxy_uri$is_args$args;
+      if (\$custom_upstream_port = "") { return 404; }
+      set \$proxy_uri \$custom_uri;
+      if (\$proxy_uri = "") { set \$proxy_uri /; }
+      proxy_set_header X-Forwarded-Prefix /port/\$custom_port;
+      proxy_pass http://127.0.0.1:\$custom_upstream_port\$proxy_uri\$is_args\$args;
     }
 
     location / {
