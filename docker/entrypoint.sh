@@ -144,7 +144,7 @@ http {
     proxy_request_buffering off;
     proxy_redirect off;
 
-    location ~ ^/port/(?<custom_port>[0-9]{1,5})(?<custom_uri>/.*)?$ {
+    location ~ "^/port/(?<custom_port>[0-9]{1,5})(?<custom_uri>/.*)?$" {
       if (\$custom_upstream_port = "") { return 404; }
       set \$proxy_uri \$custom_uri;
       if (\$proxy_uri = "") { set \$proxy_uri /; }
