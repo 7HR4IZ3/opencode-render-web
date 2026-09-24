@@ -21,6 +21,8 @@ The Nginx front proxy listens on Render's single public `PORT`, forwards normal 
 
 Set `PROXY_ALLOWED_PORTS` on the Render service to a comma-separated list of individual ports and inclusive ranges, for example `3001,4173-4190` or `3001-3999`. The total may contain at most 4096 distinct ports. Each port must be between 1024 and 65535 and must not overlap OpenCode, the Render listener, the private API listener, or Render-reserved ports. Then start the additional app inside the same container on `127.0.0.1:<port>` and open `https://<service>.onrender.com/port/<port>/`. The proxy strips the `/port/<port>` prefix, forwards `X-Forwarded-Prefix`, and supports WebSocket upgrades. Ports outside the configured values or ranges return 404.
 
+The `port_proxy_expose_port` OpenCode tool can also expose one already-listening local port without editing the environment variable. OpenCode asks for approval before exposing or removing a manual route. Use `port_proxy_list_exposed_ports` to inspect routes and `port_proxy_unexpose_port` to remove manual routes. Manual routes last until the container restarts; environment-configured routes remain controlled by `PROXY_ALLOWED_PORTS`.
+
 This routes only processes running inside the OpenCode container; it does not expose ports on separate Render services. Add only ports for apps intended to be public. The proxy does not add authentication to those apps, and applications that generate absolute asset URLs may need a base-path setting for `/port/<port>`.
 
 
