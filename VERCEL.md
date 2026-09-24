@@ -9,14 +9,16 @@ OpenCode and nginx run as the unprivileged `opencode` user.
 ## Deploy the branch
 
 1. Import `7HR4IZ3/opencode-render-web` into a **new Vercel project**. Keep
-   the repository root as the project root, choose `Other` if asked for a
-   framework, and keep the production branch set to `main` so this branch
-   only creates a Preview deployment.
-2. In the project's Preview environment, set a long random
+   the repository root as the project root and choose `Other` if asked for a
+   framework. Set this separate project's production branch to
+   `experiment/vercel-opencode` during import, or in Git settings afterward
+   and then trigger a new deployment of that branch. The Render project and
+   repository `main` branch are unaffected.
+2. In that project's Production environment, set a long random
    `OPENCODE_SERVER_PASSWORD`. Optionally set `OPENCODE_SERVER_USERNAME` and
    `OPENCODE_AUTH_B64` for provider credentials. Set integration tokens only
    if the matching OpenCode tool or MCP needs them; never store them in Git.
-3. Deploy `experiment/vercel-opencode`. Open the preview URL, sign in with
+3. Deploy `experiment/vercel-opencode`. Open the test project's URL, sign in with
    `opencode` (or `OPENCODE_SERVER_USERNAME`) and the configured password,
    then check `/api/global/health` and the OpenCode UI.
 
