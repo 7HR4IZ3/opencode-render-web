@@ -94,6 +94,13 @@ The Dockerfile installs the plugin dependencies in a Bun builder stage and copie
 
 The Blueprint uses the Free plan. The OpenCode SQLite store is durable through Litestream, and ordinary workspace changes are continuously replicated under the workspace prefix. R2 credentials should be scoped to one bucket and the smallest required permissions. Because the workspace is object-backed, a crash can leave a small sync window and conflict policy `skip` requires manual resolution.
 
+## Vercel preview
+
+The experimental `Dockerfile.vercel` deploys this image as a Vercel Container
+Image Function with isolated, temporary data. See [VERCEL.md](VERCEL.md) for
+the Preview setup, authentication, and limits. The Render deployment continues
+to own its R2 replica and workspace.
+
 ## Platform integrations
 
 The OpenCode runtime connects to the official GitHub, GitLab, and Render MCP servers, and includes typed plus general REST tools for Vercel and GitLab. Configure the provider credentials in the Render service environment; setup and tool details are in [PLATFORM_INTEGRATIONS.md](PLATFORM_INTEGRATIONS.md).
