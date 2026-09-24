@@ -91,7 +91,7 @@ if [ -n "$custom_proxy_ports" ]; then
         ;;
     esac
     seen_ports="$seen_ports$allowed_port,"
-    printf '    %s %s;\\n' "$allowed_port" "$allowed_port" >> "$allowed_ports_file"
+    printf '    %s %s;\n' "$allowed_port" "$allowed_port" >> "$allowed_ports_file"
   done
 fi
 
