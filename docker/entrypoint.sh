@@ -47,8 +47,10 @@ mkdir -p "$auth_dir" "$workdir"
 proxy_dir="$data_root/proxy"
 mkdir -p "$proxy_dir/client_body_temp" "$proxy_dir/proxy_temp"
 allowed_ports_file="$proxy_dir/allowed-ports.map"
+manual_ports_file="$proxy_dir/manual-ports.map"
 proxy_config="$proxy_dir/nginx.conf"
 : > "$allowed_ports_file"
+: > "$manual_ports_file"
 
 if [ -n "$custom_proxy_ports" ]; then
   case ",$custom_proxy_ports," in
@@ -149,6 +151,7 @@ http {
   map \$uri \$custom_upstream_port {
     default "";
     include $allowed_ports_file;
+    include $manual_ports_file;
   }
 
   map \$http_upgrade \$connection_upgrade {
