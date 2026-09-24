@@ -173,6 +173,10 @@ export default Plugin.define({
           { ref, status, per_page: boundedLimit(limit, 20, 100) },
         )),
       });
+    }).catch((error) => {
+      const detail = error instanceof Error ? error.stack ?? error.message : String(error);
+      console.error("[opencode.gitlab] tool.transform failed:", detail);
+      throw error;
     });
   },
 });
