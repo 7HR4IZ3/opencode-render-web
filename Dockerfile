@@ -19,9 +19,9 @@ FROM ghcr.io/anomalyco/opencode:2.0.3@sha256:aaf8c5420e10652c520e068532384f6e20c
 USER root
 
 # Nginx exposes one public port and routes it to OpenCode or allowlisted local apps.
-RUN apk add --no-cache ca-certificates git socat nginx nodejs nodejs-dev npm tmux python3 make g++ linux-headers \
+RUN apk add --no-cache ca-certificates git socat nginx \
   && addgroup -S opencode \
-  && adduser -S -G opencode -h /var/lib/opencode -s /bin/sh opencode \
+  && adduser -S -G opencode -h /var/lib/opencode opencode \
   && mkdir -p /var/lib/opencode /opt/opencode-config \
   && mkdir -p /var/lib/nginx/logs \
   && chown -R opencode:opencode /var/lib/opencode /var/lib/nginx /opt/opencode-config
@@ -32,11 +32,6 @@ COPY opencode.jsonc /opt/opencode-config/opencode.jsonc
 COPY --from=plugin-deps --chown=opencode:opencode /opt/opencode-config/.opencode/node_modules /opt/opencode-config/.opencode/node_modules
 COPY --chown=opencode:opencode .opencode/package.json .opencode/bun.lock /opt/opencode-config/.opencode/
 COPY --chown=opencode:opencode .opencode/plugins /opt/opencode-config/.opencode/plugins
-COPY web-terminal/package.json /opt/opencode-terminal/package.json
-RUN cd /opt/opencode-terminal && npm install --omit=dev --no-audit --no-fund
-COPY --chown=opencode:opencode web-terminal/server.mjs /opt/opencode-terminal/server.mjs
-RUN node --check /opt/opencode-terminal/server.mjs
-RUN chown -R opencode:opencode /opt/opencode-terminal
 
 ENV HOME=/var/lib/opencode \
   XDG_DATA_HOME=/var/lib/opencode \
@@ -46,10 +41,9 @@ ENV HOME=/var/lib/opencode \
   OPENCODE_INTERNAL_PORT=4096 \
   OPENCODE_WORKDIR=/var/lib/opencode/workspace \
   PORT=3000 \
-  API_PORT=4097 \
-  TERMINAL_PORT=4098
+  API_PORT=4097
 
-EXPOSE 3000 4097 4098
+EXPOSE 3000 4097
 
 USER opencode
 ENTRYPOINT ["/usr/local/bin/opencode-render-entrypoint"]
