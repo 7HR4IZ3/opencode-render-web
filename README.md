@@ -17,7 +17,7 @@ Render only exposes one public HTTP port per web service. Its additional-port su
 
 ## Proxy additional in-container apps
 
-The Nginx front proxy listens on Render's single public `PORT`, forwards normal paths to OpenCode on `OPENCODE_INTERNAL_PORT`, and can route selected `/port/<port>/…` paths to other HTTP services running inside the same container. Render forwards public traffic to one port; the proxy makes multiple local services reachable through that listener. citeturn47search0
+The Nginx front proxy listens on Render's single public `PORT`, forwards normal paths to OpenCode on `OPENCODE_INTERNAL_PORT`, and can route selected `/port/<port>/…` paths to other HTTP services running inside the same container. Render forwards public traffic to one port; the proxy makes multiple local services reachable through that listener. [Render documents the one-port routing rule](https://render.com/docs/web-services).
 
 Set `PROXY_ALLOWED_PORTS` on the Render service to a comma-separated allowlist, for example `3001,4173`. Then start the additional app inside the same container on `127.0.0.1:<port>` and open `https://<service>.onrender.com/port/<port>/`. The proxy strips the `/port/<port>` prefix, forwards `X-Forwarded-Prefix`, and supports WebSocket upgrades. The port must be between 1024 and 65535 and must not overlap OpenCode, the Render listener, or the private API listener. An unlisted port returns 404.
 
