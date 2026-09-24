@@ -19,7 +19,7 @@ FROM ghcr.io/anomalyco/opencode:2.0.3@sha256:aaf8c5420e10652c520e068532384f6e20c
 USER root
 
 # Nginx exposes one public port and routes it to OpenCode or allowlisted local apps.
-RUN apk add --no-cache ca-certificates git socat nginx nodejs npm tmux python3 make g++ linux-headers \
+RUN apk add --no-cache ca-certificates git socat nginx nodejs nodejs-dev npm tmux python3 make g++ linux-headers \
   && addgroup -S opencode \
   && adduser -S -G opencode -h /var/lib/opencode opencode \
   && mkdir -p /var/lib/opencode /opt/opencode-config \
@@ -35,6 +35,7 @@ COPY --chown=opencode:opencode .opencode/plugins /opt/opencode-config/.opencode/
 COPY web-terminal/package.json /opt/opencode-terminal/package.json
 RUN cd /opt/opencode-terminal && npm install --omit=dev --no-audit --no-fund
 COPY --chown=opencode:opencode web-terminal/server.mjs /opt/opencode-terminal/server.mjs
+RUN node --check /opt/opencode-terminal/server.mjs
 RUN chown -R opencode:opencode /opt/opencode-terminal
 
 ENV HOME=/var/lib/opencode \
