@@ -21,7 +21,7 @@ USER root
 # Nginx exposes one public port and routes it to OpenCode or allowlisted local apps.
 RUN apk add --no-cache ca-certificates git socat nginx nodejs nodejs-dev npm tmux python3 make g++ linux-headers \
   && addgroup -S opencode \
-  && adduser -S -G opencode -h /var/lib/opencode opencode \
+  && adduser -S -G opencode -h /var/lib/opencode -s /bin/sh opencode \
   && mkdir -p /var/lib/opencode /opt/opencode-config \
   && mkdir -p /var/lib/nginx/logs \
   && chown -R opencode:opencode /var/lib/opencode /var/lib/nginx /opt/opencode-config
