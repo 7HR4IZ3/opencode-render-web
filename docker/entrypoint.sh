@@ -307,10 +307,10 @@ if [ "$litestream_enabled" = "1" ]; then
   litestream replicate \
     -config "$litestream_config" \
     -restore-if-db-not-exists \
-    -exec "opencode serve --hostname 127.0.0.1 --port $internal_port" &
+    -exec "opencode --print-logs serve --hostname 127.0.0.1 --port $internal_port" &
   server_pid=$!
 else
-  opencode serve --hostname 127.0.0.1 --port "$internal_port" &
+  opencode --print-logs serve --hostname 127.0.0.1 --port "$internal_port" &
   server_pid=$!
 fi
 
