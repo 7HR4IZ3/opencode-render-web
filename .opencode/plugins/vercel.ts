@@ -30,6 +30,16 @@ function apiMethod(value: string): ApiMethod {
   return value as ApiMethod;
 }
 
+const querySchema = Schema.Record(
+  Schema.String,
+  Schema.Union([
+    Schema.String,
+    Schema.Number,
+    Schema.Boolean,
+    Schema.Array(Schema.String),
+  ]),
+);
+
 export default Plugin.define({
   id: "opencode.vercel",
   async setup(ctx) {
@@ -45,10 +55,7 @@ export default Plugin.define({
         input: Schema.Struct({
           method: Schema.String,
           path: Schema.String,
-          query: Schema.optional(Schema.Record({
-            key: Schema.String,
-            value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean, Schema.Array(Schema.String)),
-          })),
+          query: Schema.optional(querySchema),
           body: Schema.optional(Schema.Unknown),
         }),
         options: { namespace: "vercel" },
