@@ -91,7 +91,7 @@ if [ -n "$custom_proxy_ports" ]; then
         ;;
     esac
     seen_ports="$seen_ports$allowed_port,"
-    printf '    %s %s;\n' "$allowed_port" "$allowed_port" >> "$allowed_ports_file"
+    printf '    ~^/port/%s(?:/|$) %s;\n' "$allowed_port" "$allowed_port" >> "$allowed_ports_file"
   done
 fi
 
@@ -110,7 +110,7 @@ http {
   proxy_temp_path $proxy_dir/proxy_temp;
   client_max_body_size 1g;
 
-  map \$custom_port \$custom_upstream_port {
+  map \$uri \$custom_upstream_port {
     default "";
     include $allowed_ports_file;
   }
@@ -118,6 +118,11 @@ http {
   map \$http_upgrade \$connection_upgrade {
     default upgrade;
     "" close;
+  }
+
+  map \$http_x_forwarded_proto \$client_proto {
+    default \$http_x_forwarded_proto;
+    "" \$scheme;
   }
 
   server {
@@ -143,11 +148,26 @@ http {
       if (\$custom_upstream_port = "") { return 404; }
       set \$proxy_uri \$custom_uri;
       if (\$proxy_uri = "") { set \$proxy_uri /; }
+      proxy_set_header Host \$host;
+      proxy_set_header X-Real-IP \$remote_addr;
+      proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Host \$host;
+      proxy_set_header X-Forwarded-Proto \$client_proto;
+      proxy_set_header Upgrade \$http_upgrade;
+      proxy_set_header Connection \$connection_upgrade;
       proxy_set_header X-Forwarded-Prefix /port/\$custom_port;
       proxy_pass http://127.0.0.1:\$custom_upstream_port\$proxy_uri\$is_args\$args;
     }
 
     location / {
+      proxy_set_header Host \$host;
+      proxy_set_header X-Real-IP \$remote_addr;
+      proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Host \$host;
+      proxy_set_header X-Forwarded-Proto \$client_proto;
+      proxy_set_header Upgrade \$http_upgrade;
+      proxy_set_header Connection \$connection_upgrade;
+      proxy_set_header X-Forwarded-Prefix "";
       proxy_pass http://127.0.0.1:$internal_port;
     }
   }
