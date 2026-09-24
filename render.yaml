@@ -51,3 +51,5 @@ services:
         value: .r2-sync,.opencode,.git,node_modules
       - key: API_PORT
         value: "4097"
+      - key: PROXY_ALLOWED_PORTS
+        value: ""
