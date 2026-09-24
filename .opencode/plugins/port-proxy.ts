@@ -1,5 +1,4 @@
 import { spawnSync } from "node:child_process";
-import { createConnection } from "node:net";
 import { readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import process from "node:process";
@@ -12,7 +11,7 @@ const MAX_MANUAL_PORTS = 256;
 const RENDER_RESERVED_PORTS = new Set([18012, 18013, 19099]);
 
 const dataRoot =
-  process.env.XDG_DATA_HOME ??
+  process.env.XDG_DATA_HOME ||
   join(process.env.HOME ?? "/tmp", ".local", "share");
 const proxyDirectory = join(dataRoot, "proxy");
 const nginxConfig = join(proxyDirectory, "nginx.conf");
@@ -65,17 +64,11 @@ async function readMap(file: string) {
   }
 }
 
-function isListening(port: number) {
-  return new Promise<void>((resolve, reject) => {
-    const socket = createConnection({ host: "127.0.0.1", port });
-    socket.setTimeout(1200, () => {
-      socket.destroy(new Error("connection timed out"));
-    });
-    socket.once("connect", () => {
-      socket.destroy();
-      resolve();
-    });
-    socket.once("error", reject);
+async function assertHttpService(port: number) {
+  await fetch(`http://127.0.0.1:${port}/`, {
+    method: "HEAD",
+    redirect: "manual",
+    signal: AbortSignal.timeout(1500),
   });
 }
 
@@ -133,9 +126,9 @@ async function exposePort(port: number) {
       throw new Error(`At most ${MAX_MANUAL_PORTS} ports can be exposed manually at once`);
     }
     try {
-      await isListening(port);
+      await assertHttpService(port);
     } catch {
-      throw new Error(`No HTTP service is accepting connections on 127.0.0.1:${port}`);
+      throw new Error(`No HTTP service answered on 127.0.0.1:${port}`);
     }
     ports.add(port);
     await applyManualPorts(ports);
