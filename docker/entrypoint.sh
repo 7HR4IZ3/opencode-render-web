@@ -7,7 +7,6 @@ workdir="${OPENCODE_WORKDIR:-/var/lib/opencode/workspace}"
 internal_port="${OPENCODE_INTERNAL_PORT:-4096}"
 public_port="${PORT:-3000}"
 api_port="${API_PORT:-4097}"
-terminal_port="${TERMINAL_PORT:-4098}"
 custom_proxy_ports="${PROXY_ALLOWED_PORTS:-}"
 litestream_enabled="${OPENCODE_LITESTREAM_ENABLED:-0}"
 
@@ -20,17 +19,14 @@ esac
 case "$api_port" in
   ''|*[!0-9]*) echo "API_PORT must be numeric" >&2; exit 1 ;;
 esac
-case "$terminal_port" in
-  ''|*[!0-9]*) echo "TERMINAL_PORT must be numeric" >&2; exit 1 ;;
-esac
-for value in "$internal_port" "$public_port" "$api_port" "$terminal_port"; do
+for value in "$internal_port" "$public_port" "$api_port"; do
   if [ "$value" -lt 1 ] || [ "$value" -gt 65535 ]; then
     echo "Ports must be between 1 and 65535" >&2
     exit 1
   fi
 done
-if [ "$internal_port" = "$public_port" ] || [ "$internal_port" = "$api_port" ] || [ "$internal_port" = "$terminal_port" ] || [ "$terminal_port" = "$public_port" ] || [ "$terminal_port" = "$api_port" ]; then
-  echo "OpenCode, PORT, API_PORT, and TERMINAL_PORT must all use different ports" >&2
+if [ "$internal_port" = "$public_port" ] || [ "$internal_port" = "$api_port" ] || [ "$public_port" = "$api_port" ]; then
+  echo "OpenCode, PORT, and API_PORT must all use different ports" >&2
   exit 1
 fi
 
@@ -121,7 +117,7 @@ if [ -n "$custom_proxy_ports" ]; then
           exit 1
           ;;
       esac
-      if [ "$allowed_port" = "$internal_port" ] || [ "$allowed_port" = "$public_port" ] || [ "$allowed_port" = "$api_port" ] || [ "$allowed_port" = "$terminal_port" ]; then
+      if [ "$allowed_port" = "$internal_port" ] || [ "$allowed_port" = "$public_port" ] || [ "$allowed_port" = "$api_port" ]; then
         echo "Port $allowed_port is already used by OpenCode or the service proxy" >&2
         exit 1
       fi
@@ -203,9 +199,6 @@ http {
       proxy_pass http://127.0.0.1:\$custom_upstream_port\$proxy_uri\$is_args\$args;
     }
 
-    location ^~ /terminal {
-      proxy_pass http://127.0.0.1:$terminal_port;
-    }
 
     location / {
       proxy_set_header Host \$host;
@@ -323,7 +316,7 @@ if [ "$litestream_enabled" = "1" ]; then
   mkdir -p "$(dirname "$db_path")"
   litestream_config="$data_root/litestream.yml"
   cat >"$litestream_config" <<EOF
-sync-interval: 1s
+sync-interval: 10s
 snapshot:
   interval: 24h
   retention: 168h
@@ -362,9 +355,6 @@ else
   server_pid=$!
 fi
 
-terminal_pid=""
-node /opt/opencode-terminal/server.mjs &
-terminal_pid=$!
 
 proxy_pid=""
 api_proxy_pid=""
@@ -378,7 +368,7 @@ if [ "$api_port" != "$public_port" ]; then
 fi
 
 cleanup() {
-  kill "$server_pid" "$terminal_pid" "$proxy_pid" ${api_proxy_pid:-} 2>/dev/null || true
+  kill "$server_pid" "$proxy_pid" ${api_proxy_pid:-} 2>/dev/null || true
 }
 trap cleanup INT TERM EXIT
 
@@ -392,11 +382,6 @@ while :; do
   fi
   if ! kill -0 "$proxy_pid" 2>/dev/null; then
     wait "$proxy_pid"
-    status=$?
-    break
-  fi
-  if ! kill -0 "$terminal_pid" 2>/dev/null; then
-    wait "$terminal_pid"
     status=$?
     break
   fi
