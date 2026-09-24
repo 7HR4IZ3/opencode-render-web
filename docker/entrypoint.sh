@@ -7,6 +7,7 @@ workdir="${OPENCODE_WORKDIR:-/var/lib/opencode/workspace}"
 internal_port="${OPENCODE_INTERNAL_PORT:-4096}"
 public_port="${PORT:-3000}"
 api_port="${API_PORT:-4097}"
+custom_proxy_ports="${PROXY_ALLOWED_PORTS:-}"
 litestream_enabled="${OPENCODE_LITESTREAM_ENABLED:-0}"
 
 case "$internal_port" in
@@ -18,12 +19,143 @@ esac
 case "$api_port" in
   ''|*[!0-9]*) echo "API_PORT must be numeric" >&2; exit 1 ;;
 esac
+for value in "$internal_port" "$public_port" "$api_port"; do
+  if [ "$value" -lt 1 ] || [ "$value" -gt 65535 ]; then
+    echo "Ports must be between 1 and 65535" >&2
+    exit 1
+  fi
+done
+if [ "$internal_port" = "$public_port" ] || [ "$internal_port" = "$api_port" ]; then
+  echo "OPENCODE_INTERNAL_PORT must differ from PORT and API_PORT" >&2
+  exit 1
+fi
+
+case "$custom_proxy_ports" in
+  *[!0-9,]*)
+    echo "PROXY_ALLOWED_PORTS must be a comma-separated list of numeric ports" >&2
+    exit 1
+    ;;
+esac
+
 case "$litestream_enabled" in
   0|1) ;;
   *) echo "OPENCODE_LITESTREAM_ENABLED must be 0 or 1" >&2; exit 1 ;;
 esac
 
 mkdir -p "$auth_dir" "$workdir"
+
+proxy_dir="$data_root/proxy"
+mkdir -p "$proxy_dir/client_body_temp" "$proxy_dir/proxy_temp"
+allowed_ports_file="$proxy_dir/allowed-ports.map"
+proxy_config="$proxy_dir/nginx.conf"
+: > "$allowed_ports_file"
+
+if [ -n "$custom_proxy_ports" ]; then
+  case ",$custom_proxy_ports," in
+    *,,*)
+      echo "PROXY_ALLOWED_PORTS cannot contain empty entries" >&2
+      exit 1
+      ;;
+  esac
+
+  saved_ifs=$IFS
+  IFS=','
+  set -- $custom_proxy_ports
+  IFS=$saved_ifs
+  seen_ports=","
+  for allowed_port do
+    case "$allowed_port" in
+      ''|0*|*[!0-9]*)
+        echo "Each PROXY_ALLOWED_PORTS entry must be a decimal port without leading zeroes" >&2
+        exit 1
+        ;;
+    esac
+    if [ "${#allowed_port}" -gt 5 ] || [ "$allowed_port" -lt 1024 ] || [ "$allowed_port" -gt 65535 ]; then
+      echo "Custom proxy ports must be between 1024 and 65535" >&2
+      exit 1
+    fi
+    case "$allowed_port" in
+      18012|18013|19099)
+        echo "Port $allowed_port is reserved by Render" >&2
+        exit 1
+        ;;
+    esac
+    if [ "$allowed_port" = "$internal_port" ] || [ "$allowed_port" = "$public_port" ] || [ "$allowed_port" = "$api_port" ]; then
+      echo "Port $allowed_port is already used by OpenCode or the service proxy" >&2
+      exit 1
+    fi
+    case "$seen_ports" in
+      *,"$allowed_port",*)
+        echo "PROXY_ALLOWED_PORTS contains duplicate port $allowed_port" >&2
+        exit 1
+        ;;
+    esac
+    seen_ports="$seen_ports$allowed_port,"
+    printf '    %s %s;\\n' "$allowed_port" "$allowed_port" >> "$allowed_ports_file"
+  done
+fi
+
+cat > "$proxy_config" <<EOF
+worker_processes 1;
+pid $proxy_dir/nginx.pid;
+error_log /dev/stderr notice;
+
+events {
+  worker_connections 1024;
+}
+
+http {
+  access_log /dev/stdout;
+  client_body_temp_path $proxy_dir/client_body_temp;
+  proxy_temp_path $proxy_dir/proxy_temp;
+  client_max_body_size 1g;
+
+  map $custom_port $custom_upstream_port {
+    default "";
+    include $allowed_ports_file;
+  }
+
+  map $http_upgrade $connection_upgrade {
+    default upgrade;
+    "" close;
+  }
+
+  server {
+    listen 0.0.0.0:$public_port default_server;
+    server_tokens off;
+
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_connect_timeout 10s;
+    proxy_read_timeout 3600s;
+    proxy_send_timeout 3600s;
+    proxy_buffering off;
+    proxy_request_buffering off;
+    proxy_redirect off;
+
+    location ~ ^/port/(?<custom_port>[0-9]{1,5})(?<custom_uri>/.*)?$ {
+      if ($custom_upstream_port = "") { return 404; }
+      set $proxy_uri $custom_uri;
+      if ($proxy_uri = "") { set $proxy_uri /; }
+      proxy_set_header X-Forwarded-Prefix /port/$custom_port;
+      proxy_pass http://127.0.0.1:$custom_upstream_port$proxy_uri$is_args$args;
+    }
+
+    location / {
+      proxy_pass http://127.0.0.1:$internal_port;
+    }
+  }
+}
+EOF
+
+nginx -t -c "$proxy_config"
+
 
 # Decode at runtime, never at Docker build time. Build args and image layers
 # are recoverable; Render runtime env vars are not baked into the image.
@@ -150,6 +282,7 @@ cp -R /opt/opencode-config/. "$workdir"/
 cd "$workdir"
 
 echo "Starting OpenCode v2 on 127.0.0.1:${internal_port}"
+echo "Starting public proxy on 0.0.0.0:${public_port}"
 if [ "$litestream_enabled" = "1" ]; then
   litestream replicate \
     -config "$litestream_config" \
@@ -164,19 +297,12 @@ fi
 proxy_pid=""
 api_proxy_pid=""
 
-start_proxy() {
-  listen_port="$1"
-  if [ "$listen_port" = "$internal_port" ]; then
-    echo "${listen_port} cannot equal OPENCODE_INTERNAL_PORT" >&2
-    exit 1
-  fi
-  socat "TCP-LISTEN:${listen_port},bind=0.0.0.0,reuseaddr,fork" "TCP:127.0.0.1:${internal_port}" &
-  echo "$!"
-}
+nginx -c "$proxy_config" -g "daemon off;" &
+proxy_pid=$!
 
-proxy_pid=$(start_proxy "$public_port")
 if [ "$api_port" != "$public_port" ]; then
-  api_proxy_pid=$(start_proxy "$api_port")
+  socat "TCP-LISTEN:${api_port},bind=0.0.0.0,reuseaddr,fork" "TCP:127.0.0.1:${internal_port}" &
+  api_proxy_pid=$!
 fi
 
 cleanup() {
@@ -184,8 +310,20 @@ cleanup() {
 }
 trap cleanup INT TERM EXIT
 
+status=0
 set +e
-wait "$server_pid"
-status=$?
+while :; do
+  if ! kill -0 "$server_pid" 2>/dev/null; then
+    wait "$server_pid"
+    status=$?
+    break
+  fi
+  if ! kill -0 "$proxy_pid" 2>/dev/null; then
+    wait "$proxy_pid"
+    status=$?
+    break
+  fi
+  sleep 1
+done
 set -e
 exit "$status"
