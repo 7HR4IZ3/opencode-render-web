@@ -18,9 +18,8 @@ FROM ghcr.io/anomalyco/opencode:2.0.3@sha256:aaf8c5420e10652c520e068532384f6e20c
 
 USER root
 
-# socat keeps one OpenCode process (and therefore one database/event bus) while
-# making the same HTTP/WebSocket server available on two container ports.
-RUN apk add --no-cache ca-certificates git socat \
+# Nginx exposes one public port and routes it to OpenCode or allowlisted local apps.
+RUN apk add --no-cache ca-certificates git socat nginx \
   && addgroup -S opencode \
   && adduser -S -G opencode -h /var/lib/opencode opencode \
   && mkdir -p /var/lib/opencode /opt/opencode-config \
