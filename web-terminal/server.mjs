@@ -117,7 +117,7 @@ const html = `<!doctype html>
           try {
             const message = JSON.parse(event.data);
             if (message.type === "output") terminal.write(message.data);
-            if (message.type === "notice") terminal.write("\r\n\x1b[90m" + message.text + "\x1b[0m\r\n");
+            if (message.type === "notice") terminal.write("\\r\\n\\x1b[90m" + message.text + "\\x1b[0m\\r\\n");
           } catch {}
         };
         socket.onerror = () => setStatus("Connection error", "error");
